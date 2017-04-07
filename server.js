@@ -36,6 +36,11 @@ app.post('/webhook', function(req, res) {
                     if (event.message) {
                         receivedMessage(event);
                     }
+
+                    else if (event.postback) {
+                        receivedPostback(event);
+                    }
+
                     else {
                         console.log('webhook received unknown event : ', event);
                     }
@@ -60,8 +65,8 @@ function receivedMessage(event) {
 
     if (messageText) {
         switch (messageText) {
-            case 'generic':
-                sendGenericMessage(senderID);
+            case 'test buttons':
+                sendTestButtons(senderID);
                 break;
 
             default:
@@ -73,8 +78,52 @@ function receivedMessage(event) {
     }
 }
 
-function sendGenericMessage(recipientId, messageText) {
-    // add later
+function sendTestButtons(recipientId) {
+    // create structure message
+    var messageData = {
+        recipient: {
+            id: recipientId
+        },
+        message: {
+            attachment: {
+                type: "template",
+                payload: {
+                    template_type: "generic",
+                    elements: [{
+                        title: "Hungry?",
+                        subtitle: "for apples?",
+                        item_url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
+                        image_url: "https://images-na.ssl-images-amazon.com/images/I/81EpLRXCUJL._UX569_.jpg",
+                        buttons: [{
+                            type: "web_url",
+                            url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
+                            title: "see on Amazon"
+                        }, {
+                            type: "postback",
+                            title: "call postback",
+                            payload: "payload for first bubble"
+                        }]
+                    }, {
+                        title: "Hungry again?",
+                        subtitle: "for more apples?",
+                        item_url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
+                        image_url: "https://images-na.ssl-images-amazon.com/images/I/81EpLRXCUJL._UX569_.jpg",
+                        buttons: [{
+                            type: "web_url",
+                            url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
+                            title: "see on Amazon"
+                        }, {
+                            type: "postback",
+                            title: "call postback",
+                            payload: "payload for second bubble"
+                        }]
+                    }]
+                }
+            }
+        }
+    };
+
+    callSendAPI(messageData);
 }
 
 function sendTextMessage(recipientId, messageText) {
@@ -89,6 +138,18 @@ function sendTextMessage(recipientId, messageText) {
     callSendAPI(messageData);
 }
 
+function receivedPostback(event) {
+    var senderID = event.sender.id;
+    var recipientID = event.recipient.id;
+    var timeOfPostback = event.timestamp;
+
+    var payload = event.postback.payload;
+
+    console.log("Received postback for user %d and page %d with payload '%s' " + "at %d", senderID, recipientID, payload, timeOfPostback);
+
+    sendTextMessage(senderID, "Postback called " + payload);
+}
+
 function callSendAPI(messageData) {
     request({
         uri: 'https://graph.facebook.com/v2.6/me/messages',
@@ -101,7 +162,7 @@ function callSendAPI(messageData) {
         if (!error && response.statusCode == 200) {
             var recipientId = body.recipient_id;
             var messageId = body.message_id;
-            console.log('Successfully sent generic message with id %s and text \'%s\' to recipient %s', messageId, messageData.message.text, recipientId);
+            console.log('Successfully sent message with id %s to recipient %s', messageId, recipientId);
         }
         else {
             console.error("Unable to send message.");
