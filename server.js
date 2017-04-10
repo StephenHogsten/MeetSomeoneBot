@@ -71,6 +71,17 @@ function receivedMessage(event) {
 
             default:
                 sendTextMessage(senderID, messageText);
+            request({
+              uri: 'https://graph.facebook.com/v2.6/' + recipientId + '&access_token=' + process.env.PAGE_ACCESS_TOKEN,
+              method: 'GET'
+              }, (error, response, body) => {
+      if (error) {
+        // console.log('error getting profile', error);
+        return;
+      }
+      console.log('body: ', body);
+
+    });
         }
     }
     else if (messageAttachments) {
@@ -142,12 +153,26 @@ function receivedPostback(event) {
     var senderID = event.sender.id;
     var recipientID = event.recipient.id;
     var timeOfPostback = event.timestamp;
-
     var payload = event.postback.payload;
+
+      request({
+      uri: 'https://graph.facebook.com/v2.6/' + senderID + '?fields=first_name,last_name,profile_pic,locale,timezone,gender&access_token=' + process.env.PAGE_ACCESS_TOKEN,
+      method: 'GET'
+    }, (error, response, body) => {
+      if (error) {
+        // console.log('error getting profile', error);
+        return;
+      }
+       var user_info =body;
+      sendTextMessage(senderID, "User Info " + user_info);
+
+      console.log('User Info response: ', body);
+
+    });
 
     console.log("Received postback for user %d and page %d with payload '%s' " + "at %d", senderID, recipientID, payload, timeOfPostback);
 
-    sendTextMessage(senderID, "Postback called " + payload);
+
 }
 
 function callSendAPI(messageData) {
