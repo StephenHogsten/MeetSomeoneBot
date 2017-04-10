@@ -3,19 +3,56 @@ require('dotenv').config();
 var express = require('express');
 var bodyParser = require('body-parser');
 var request = require('request');
+var passport = require('passport');
+var Strategy = require('passport-facebook').Strategy;
 
 var app = express();
+
+// Use application-level middleware for common functionality, including
+// logging, parsing, and session handling.
+app.use(require('morgan')('combined'));
+app.use(require('cookie-parser')());
+app.use(require('body-parser').urlencoded({
+    extended: true
+}));
+app.use(require('express-session')({
+    secret: 'keyboard cat',
+    resave: true,
+    saveUninitialized: true
+}));
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({
     extended: true
 }));
 
-app.get('/', (req, res) => {
-    res.status(200).send("I'm Alive!");
+passport.use(new Strategy({
+        clientID: '406891689679457',
+        clientSecret: '77ae45309a9d5fa290c294578ef834e9',
+        callbackURL: 'https://4a03de95.ngrok.io/login/facebook/return',
+        profileFields: ['id', 'name', 'email', 'age_range', 'gender', 'timezone', 'picture', 'friends']
+    },
+    function (accessToken, refreshToken, profile, cb) {
+        // In this example, the user's Facebook profile is supplied as the user
+        // record.  In a production-quality application, the Facebook profile should
+        // be associated with a user record in the application's database, which
+        // allows for account linking and authentication with other identity
+        // providers.
+        return cb(null, profile);
+    }));
+
+passport.serializeUser(function (user, cb) {
+    cb(null, user);
 });
 
-app.post('/webhook', function(req, res) {
+passport.deserializeUser(function (obj, cb) {
+    cb(null, obj);
+});
+
+
+
+
+app.post('/webhook', function (req, res) {
     let data = req.body;
     switch (data.object) {
 
@@ -35,13 +72,9 @@ app.post('/webhook', function(req, res) {
                 entry.messaging.forEach((event) => {
                     if (event.message) {
                         receivedMessage(event);
-                    }
-
-                    else if (event.postback) {
+                    } else if (event.postback) {
                         receivedPostback(event);
-                    }
-
-                    else {
+                    } else {
                         console.log('webhook received unknown event : ', event);
                     }
                 })
@@ -65,26 +98,29 @@ function receivedMessage(event) {
 
     if (messageText) {
         switch (messageText) {
-            case 'test buttons':
+            case 'btn':
                 sendTestButtons(senderID);
+                break;
+
+            case 'info':
+                getUserInfo(senderID);
                 break;
 
             default:
                 sendTextMessage(senderID, messageText);
-            request({
-              uri: 'https://graph.facebook.com/v2.6/' + recipientId + '&access_token=' + process.env.PAGE_ACCESS_TOKEN,
-              method: 'GET'
-              }, (error, response, body) => {
-      if (error) {
-        // console.log('error getting profile', error);
-        return;
-      }
-      console.log('body: ', body);
+                request({
+                    uri: 'https://graph.facebook.com/v2.6/' + recipientId + '&access_token=' + process.env.PAGE_ACCESS_TOKEN,
+                    method: 'GET'
+                }, (error, response, body) => {
+                    if (error) {
+                        // console.log('error getting profile', error);
+                        return;
+                    }
+                    console.log('body: ', body);
 
-    });
+                });
         }
-    }
-    else if (messageAttachments) {
+    } else if (messageAttachments) {
         sendTextMessage(senderID, "Message with attachment received");
     }
 }
@@ -101,34 +137,14 @@ function sendTestButtons(recipientId) {
                 payload: {
                     template_type: "generic",
                     elements: [{
-                        title: "Hungry?",
-                        subtitle: "for apples?",
-                        item_url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
+                        title: "test",
                         image_url: "https://images-na.ssl-images-amazon.com/images/I/81EpLRXCUJL._UX569_.jpg",
                         buttons: [{
-                            type: "web_url",
-                            url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
-                            title: "see on Amazon"
-                        }, {
-                            type: "postback",
-                            title: "call postback",
-                            payload: "payload for first bubble"
+                            type: "account_link",
+                            url: "https://4a03de95.ngrok.io/login/facebook/",
+
                         }]
-                    }, {
-                        title: "Hungry again?",
-                        subtitle: "for more apples?",
-                        item_url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
-                        image_url: "https://images-na.ssl-images-amazon.com/images/I/81EpLRXCUJL._UX569_.jpg",
-                        buttons: [{
-                            type: "web_url",
-                            url: "https://www.amazon.com/Mens-Hungry-Apples-shirt-Asphalt/dp/B01M5JUF7H/ref=sr_1_2/144-8639100-9173167?ie=UTF8&qid=1491532456&sr=8-2&keywords=hungry+for+apples",
-                            title: "see on Amazon"
-                        }, {
-                            type: "postback",
-                            title: "call postback",
-                            payload: "payload for second bubble"
-                        }]
-                    }]
+                    }, ]
                 }
             }
         }
@@ -155,18 +171,18 @@ function receivedPostback(event) {
     var timeOfPostback = event.timestamp;
     var payload = event.postback.payload;
 
-      request({
-      uri: 'https://graph.facebook.com/v2.6/' + senderID + '?fields=first_name,last_name,profile_pic,locale,timezone,gender&access_token=' + process.env.PAGE_ACCESS_TOKEN,
-      method: 'GET'
+    request({
+        uri: 'https://graph.facebook.com/v2.6/' + senderID + '?fields=first_name,last_name,profile_pic,locale,timezone,gender&access_token=' + process.env.PAGE_ACCESS_TOKEN,
+        method: 'GET'
     }, (error, response, body) => {
-      if (error) {
-        // console.log('error getting profile', error);
-        return;
-      }
-       var user_info =body;
-      sendTextMessage(senderID, "User Info " + user_info);
+        if (error) {
+            // console.log('error getting profile', error);
+            return;
+        }
+        var user_info = body;
+        sendTextMessage(senderID, "User Info " + user_info);
 
-      console.log('User Info response: ', body);
+        console.log('User Info response: ', body);
 
     });
 
@@ -183,13 +199,12 @@ function callSendAPI(messageData) {
         },
         method: 'POST',
         json: messageData
-    }, function(error, response, body) {
+    }, function (error, response, body) {
         if (!error && response.statusCode == 200) {
             var recipientId = body.recipient_id;
             var messageId = body.message_id;
             console.log('Successfully sent message with id %s to recipient %s', messageId, recipientId);
-        }
-        else {
+        } else {
             console.error("Unable to send message.");
             console.error(response);
             console.error(error);
@@ -197,20 +212,88 @@ function callSendAPI(messageData) {
     })
 }
 
-app.get('/webhook', function(req, res) {
+function getUserInfo(event) {
+    var senderID = event.sender.id;
+    var recipientID = event.recipient.id;
+        request({
+            uri: 'https://graph.facebook.com/v2.6/' + senderID + '?fields=first_name,last_name,profile_pic,locale,timezone,gender&access_token=' + process.env.PAGE_ACCESS_TOKEN,
+            method: 'GET',
+            json: messageData
+        }, function (error, response, body) {
+            console.log('error:', error); // Print the error if one occurred
+            console.log('statusCode:', response && response.statusCode); // Print the response status code if a response was received
+            console.log('body:', body); // Print the HTML for the Google homepage.
+
+        })
+}
+
+
+
+app.get('/webhook', function (req, res) {
     // FOR INITIAL VERIFICATION ONLY
     if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === process.env.VERIFY_TOKEN) {
         console.log('validating webhook');
         res.status(200).send(req.query['hub.challenge']);
-    }
-    else {
+    } else {
         console.log('failed validation');
         res.sendStatus(403);
     }
 });
 
 
+app.set('views', __dirname + '/views');
+app.set('view engine', 'ejs');
+
+
+
+// Initialize Passport and restore authentication state, if any, from the
+// session.
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+// Define routes.
+app.get('/',
+    function (req, res) {
+        res.render('home', {
+            user: req.user
+        });
+    });
+
+app.get('/login',
+    function (req, res) {
+        res.render('login');
+    });
+
+app.get('/login/facebook',
+    passport.authenticate('facebook', {
+        scope: ['public_profile', 'email', 'user_friends']
+    })
+);
+
+app.get('/login/facebook/return',
+    passport.authenticate('facebook', {
+        failureRedirect: '/login'
+    }),
+    function (req, res) {
+        res.redirect('/');
+    });
+
+app.get('/profile',
+    require('connect-ensure-login').ensureLoggedIn(),
+    function (req, res) {
+        res.render('profile', {
+            user: req.user
+        });
+    });
+
+app.get('/logout', function (req, res) {
+    req.logout();
+    res.redirect('/');
+});
+
 var port = process.env.PORT || 8080;
-app.listen(port, function() {
+
+app.listen(port, function () {
     console.log("server listening on " + port);
 });

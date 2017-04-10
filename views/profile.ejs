@@ -1,0 +1,14 @@
+<p>
+ID: <%= user.id %><br/>
+Username: <%= user.id %><br/>
+Name: <%= user.name.givenName %><br/>
+Gender: <%= user.gender %><br/>
+<% if (user.emails) { %>
+Email: <%= user.emails[0].value %><br/>
+<% } %>
+<img src=' <%= user.photos[0].value %> '>
+Gender: <%= user.gender %><br/>
+TimeZone: <%= user._json.timezone %><br/>
+<hr />
+Friends: <%= user._json.friends.summary.total_count %>
+</p>
