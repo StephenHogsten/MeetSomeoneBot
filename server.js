@@ -5,6 +5,7 @@ var bodyParser = require('body-parser');
 var request = require('request');
 var passport = require('passport');
 var Strategy = require('passport-facebook').Strategy;
+var EventSearch = require('facebook-events-by-location-core');
 
 var app = express();
 
@@ -29,7 +30,7 @@ app.use(bodyParser.urlencoded({
 passport.use(new Strategy({
         clientID: '406891689679457',
         clientSecret: '77ae45309a9d5fa290c294578ef834e9',
-        callbackURL: 'https://4a03de95.ngrok.io/login/facebook/return',
+        callbackURL: 'https://ab210d06.ngrok.io/login/facebook/return',
         profileFields: ['id', 'name', 'email', 'age_range', 'gender', 'timezone', 'picture', 'friends']
     },
     function (accessToken, refreshToken, profile, cb) {
@@ -50,7 +51,16 @@ passport.deserializeUser(function (obj, cb) {
 });
 
 
-
+var es = new EventSearch({
+    "lat":36.169941,
+    "lng": -115.139830,
+    "accessToken": "EAAFyENqgGmEBANjgJbXaL9qUYxZBCbKfqogks4ZBHWhixxBQwG1pK2gfM7QuVakiobgLDuXcanHIEnBiYD03bwJVOCgpGHC9mfH91IfkqCPl7UgNwp99FGfYn5ZBqQ7XFpJwLHkRbn21Ule9yZAZBZAXeyzqeWewJbRFxQABf9cAZDZD"
+});
+es.search().then(function (events) {
+    console.log(JSON.stringify(events));
+}).catch(function (error) {
+    console.error(JSON.stringify(error));
+});
 
 app.post('/webhook', function (req, res) {
     let data = req.body;
@@ -141,8 +151,7 @@ function sendTestButtons(recipientId) {
                         image_url: "https://images-na.ssl-images-amazon.com/images/I/81EpLRXCUJL._UX569_.jpg",
                         buttons: [{
                             type: "account_link",
-                            url: "https://4a03de95.ngrok.io/login/facebook/",
-
+                            url: "https://ab210d06.ngrok.io/login/facebook/",
                         }]
                     }, ]
                 }
@@ -170,21 +179,6 @@ function receivedPostback(event) {
     var recipientID = event.recipient.id;
     var timeOfPostback = event.timestamp;
     var payload = event.postback.payload;
-
-    request({
-        uri: 'https://graph.facebook.com/v2.6/' + senderID + '?fields=first_name,last_name,profile_pic,locale,timezone,gender&access_token=' + process.env.PAGE_ACCESS_TOKEN,
-        method: 'GET'
-    }, (error, response, body) => {
-        if (error) {
-            // console.log('error getting profile', error);
-            return;
-        }
-        var user_info = body;
-        sendTextMessage(senderID, "User Info " + user_info);
-
-        console.log('User Info response: ', body);
-
-    });
 
     console.log("Received postback for user %d and page %d with payload '%s' " + "at %d", senderID, recipientID, payload, timeOfPostback);
 
@@ -296,4 +290,4 @@ var port = process.env.PORT || 8080;
 
 app.listen(port, function () {
     console.log("server listening on " + port);
-});
+    });
